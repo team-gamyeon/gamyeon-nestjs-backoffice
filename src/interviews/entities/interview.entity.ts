@@ -9,9 +9,14 @@ import {
 } from 'typeorm';
 import { UserEntity } from '../../users/entities/user.entity.js';
 
-export type InterviewStatus = 'READY' | 'IN_PROGRESS' | 'PAUSED' | 'FINISHED';
+export type InterviewStatus =
+  | 'READY'
+  | 'CREATED'
+  | 'IN_PROGRESS'
+  | 'PAUSED'
+  | 'FINISHED';
 
-@Entity('intv')
+@Entity('intvs')
 export class InterviewEntity {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id!: number;
@@ -24,7 +29,7 @@ export class InterviewEntity {
 
   @Column({
     type: 'varchar',
-    enum: ['READY', 'IN_PROGRESS', 'PAUSED', 'FINISHED'],
+    enum: ['READY', 'CREATED', 'IN_PROGRESS', 'PAUSED', 'FINISHED'],
   })
   status!: InterviewStatus;
 

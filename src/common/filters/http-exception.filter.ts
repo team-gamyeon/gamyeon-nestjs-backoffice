@@ -4,11 +4,14 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import type { Response } from 'express';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(HttpExceptionFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
@@ -60,6 +63,18 @@ export class HttpExceptionFilter implements ExceptionFilter {
         code = 'VALIDATION_ERROR';
         message = (res['message'] as string[]).join(', ');
       }
+    }
+
+    if (status >= 500) {
+      this.logger.error(
+        `Unhandled exception: ${code} - ${message}`,
+        exception instanceof Error ? exception.stack : JSON.stringify(exception),
+      );
+    } else if (!(exception instanceof HttpException)) {
+      this.logger.warn(
+        `Non-HTTP exception handled as ${status}: ${message}`,
+        typeof exception === 'string' ? exception : JSON.stringify(exception),
+      );
     }
 
     response.status(status).json({

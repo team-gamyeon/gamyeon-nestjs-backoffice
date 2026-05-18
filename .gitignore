@@ -20,10 +20,7 @@ node_modules/
 # 설계 문서 (내부용)
 # ========================
 docs/
-!docs/README-initial.md
-!docs/admin-backoffice-scope.md
-!docs/api-specification.md
-!docs/02-auth.md
+*.md
 
 # ========================
 # 로그

@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   Patch,
+  ParseIntPipe,
   Post,
   Query,
 } from '@nestjs/common';
@@ -37,13 +38,13 @@ export class QuestionsController {
 
   @Patch(':id')
   @ApiOperation({ summary: '질문 수정' })
-  updateQuestion(@Param('id') id: string, @Body() dto: UpdateQuestionDto) {
+  updateQuestion(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateQuestionDto) {
     return this.questionsService.updateQuestion(id, dto);
   }
 
   @Delete(':id')
   @ApiOperation({ summary: '질문 삭제 (소프트 삭제)' })
-  deleteQuestion(@Param('id') id: string) {
+  deleteQuestion(@Param('id', ParseIntPipe) id: number) {
     return this.questionsService.deleteQuestion(id);
   }
 }

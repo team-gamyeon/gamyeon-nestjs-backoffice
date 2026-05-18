@@ -9,10 +9,16 @@ import { NoticesModule } from './notices/notices.module';
 import { QuestionsModule } from './questions/questions.module';
 import { ReportsModule } from './reports/reports.module';
 import { UsersModule } from './users/users.module';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath:
+        process.env.NODE_ENV === 'production' ? '.env_backoffice' : '.env',
+    }),
     DatabaseModule,
     ConsulModule,
     AuthModule,
@@ -23,5 +29,7 @@ import { UsersModule } from './users/users.module';
     NoticesModule,
     InterviewsModule,
   ],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}

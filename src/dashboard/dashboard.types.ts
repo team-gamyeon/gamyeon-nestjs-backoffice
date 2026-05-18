@@ -9,8 +9,8 @@ export interface KpiItem {
 export interface KpiResponse {
   totalUsers: KpiItem;
   activeQuestions: KpiItem;
-  activeNotices: KpiItem;
-  interruptedInterviewsToday: KpiItem;
+  totalNotices: KpiItem;
+  pausedInterviews: KpiItem;
   analyzingReports: KpiItem;
 }
 

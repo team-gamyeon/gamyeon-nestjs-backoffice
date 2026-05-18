@@ -27,12 +27,12 @@ export class QuestionResultEntity {
   @Column({ type: 'text' })
   feedback!: string;
 
-  @ManyToOne(() => ReportEntity, (r) => r.questionResults, {
+  @ManyToOne(() => ReportEntity, {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'report_id' })
   report!: ReportEntity;
 
-  @Column({ name: 'report_id' })
-  reportId!: string;
+  @Column({ name: 'report_id', type: 'bigint' })
+  reportId!: number;
 }

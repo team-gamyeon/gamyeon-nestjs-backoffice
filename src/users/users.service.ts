@@ -9,6 +9,10 @@ import { UserEntity, type UserStatus } from './entities/user.entity';
 import { SanctionEntity } from './entities/sanction.entity';
 import type { ListUsersQueryDto } from './dto/list-users-query.dto';
 import type { UpdateUserStatusDto } from './dto/update-user-status.dto';
+import {
+  withSchemaReadGuard,
+  withSchemaWriteGuard,
+} from '../database/schema-guard.js';
 
 @Injectable()
 export class UsersService {
@@ -20,127 +24,136 @@ export class UsersService {
   ) {}
 
   async listUsers(query: ListUsersQueryDto) {
-    const { status, search, sortBy, sortOrder, page, limit } = query;
+    return withSchemaReadGuard(async () => {
+      const { status, search, sortBy, sortOrder, page, limit } = query;
 
-    const qb = this.userRepo.createQueryBuilder('user');
+      const qb = this.userRepo.createQueryBuilder('user');
 
-    if (status) {
-      qb.andWhere('user.status = :status', { status });
-    }
-    if (search) {
-      qb.andWhere(
-        '(user.nickname ILIKE :search OR user.email ILIKE :search)',
-        { search: `%${search}%` },
-      );
-    }
+      if (status) {
+        qb.andWhere('user.status = :status', { status });
+      }
+      if (search) {
+        qb.andWhere(
+          '(user.nickname ILIKE :search OR user.email ILIKE :search)',
+          { search: `%${search}%` },
+        );
+      }
 
-    const totalCount = await this.userRepo.count();
-    const filteredCount = await qb.getCount();
+      const totalCount = await this.userRepo.count();
+      const filteredCount = await qb.getCount();
 
-    qb.orderBy(`user.${sortBy}`, sortOrder.toUpperCase() as 'ASC' | 'DESC');
-    qb.skip((page - 1) * limit).take(limit);
+      qb.orderBy(`user.${sortBy}`, sortOrder.toUpperCase() as 'ASC' | 'DESC');
+      qb.skip((page - 1) * limit).take(limit);
 
-    const items = await qb.getMany();
+      const items = await qb.getMany();
 
-    return {
-      totalCount,
-      filteredCount,
-      page,
-      limit,
-      items: items.map((u) => ({
-        id: u.id,
-        nickname: u.nickname,
-        email: u.email,
-        provider: u.provider,
-        status: u.status,
-        createdAt: u.createdAt,
-        updatedAt: u.updatedAt,
-      })),
-    };
+      return {
+        totalCount,
+        filteredCount,
+        page,
+        limit,
+        items: items.map((u) => ({
+          id: u.id,
+          nickname: u.nickname,
+          email: u.email,
+          provider: u.provider,
+          status: u.status,
+          createdAt: u.createdAt,
+          updatedAt: u.updatedAt,
+        })),
+      };
+    }, '유저');
   }
 
   async getUserById(id: number) {
-    const user = await this.userRepo.findOne({
-      where: { id },
-      relations: ['sanctions'],
-    });
-    if (!user) {
-      throw new NotFoundException({
-        code: 'USER_NOT_FOUND',
-        message: '해당 유저를 찾을 수 없습니다.',
+    return withSchemaReadGuard(async () => {
+      const user = await this.userRepo.findOne({
+        where: { id },
+        relations: ['sanctions'],
       });
-    }
-    return {
-      id: user.id,
-      nickname: user.nickname,
-      email: user.email,
-      provider: user.provider,
-      status: user.status,
-      withdrawnAt: user.withdrawnAt,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-      sanctions: user.sanctions.map((s) => ({
-        id: s.id,
-        type: s.type,
-        reason: s.reason,
-        createdAt: s.createdAt,
-      })),
-    };
+      if (!user) {
+        throw new NotFoundException({
+          code: 'USER_NOT_FOUND',
+          message: '해당 유저를 찾을 수 없습니다.',
+        });
+      }
+      return {
+        id: user.id,
+        nickname: user.nickname,
+        email: user.email,
+        provider: user.provider,
+        status: user.status,
+        withdrawnAt: user.withdrawnAt,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        sanctions: user.sanctions.map((s) => ({
+          id: s.id,
+          type: s.type,
+          reason: s.reason,
+          createdAt: s.createdAt,
+        })),
+      };
+    }, '유저');
   }
 
   async updateUserStatus(id: number, dto: UpdateUserStatusDto) {
-    const user = await this.userRepo.findOneBy({ id });
-    if (!user) {
-      throw new NotFoundException({
-        code: 'USER_NOT_FOUND',
-        message: '해당 유저를 찾을 수 없습니다.',
+    return withSchemaWriteGuard(async () => {
+      const user = await this.userRepo.findOneBy({ id });
+      if (!user) {
+        throw new NotFoundException({
+          code: 'USER_NOT_FOUND',
+          message: '해당 유저를 찾을 수 없습니다.',
+        });
+      }
+
+      this.validateStatusTransition(user.status, dto.status);
+
+      user.status = dto.status;
+      if (dto.status === 'WITHDREW') {
+        user.withdrawnAt = new Date();
+      }
+      await this.userRepo.save(user);
+
+      const sanction = this.sanctionRepo.create({
+        type: dto.status,
+        reason: dto.reason ?? null,
+        userId: id,
+        createdAt: new Date(),
       });
-    }
+      await this.sanctionRepo.save(sanction);
 
-    this.validateStatusTransition(user.status, dto.status);
-
-    user.status = dto.status;
-    if (dto.status === 'WITHDREW') {
-      user.withdrawnAt = new Date();
-    }
-    await this.userRepo.save(user);
-
-    const sanction = this.sanctionRepo.create({
-      type: dto.status,
-      reason: dto.reason ?? null,
-      userId: id,
-    });
-    await this.sanctionRepo.save(sanction);
-
-    return {
-      id: user.id,
-      status: user.status,
-      updatedAt: user.updatedAt,
-    };
+      return {
+        id: user.id,
+        status: user.status,
+        updatedAt: user.updatedAt,
+      };
+    }, '유저');
   }
 
   async getUserSanctions(id: number) {
-    const user = await this.userRepo.findOneBy({ id });
-    if (!user) {
-      throw new NotFoundException({
-        code: 'USER_NOT_FOUND',
-        message: '해당 유저를 찾을 수 없습니다.',
+    return withSchemaReadGuard(async () => {
+      const user = await this.userRepo.findOneBy({ id });
+      if (!user) {
+        throw new NotFoundException({
+          code: 'USER_NOT_FOUND',
+          message: '해당 유저를 찾을 수 없습니다.',
+        });
+      }
+
+      const items = await this.sanctionRepo.find({
+        where: { userId: id },
+        order: { createdAt: 'DESC' },
       });
-    }
 
-    const items = await this.sanctionRepo.find({
-      where: { userId: id },
-      order: { createdAt: 'DESC' },
-    });
-
-    return {
-      items: items.map((s) => ({
-        id: s.id,
-        type: s.type,
-        reason: s.reason,
-        createdAt: s.createdAt,
-      })),
-    };
+      return {
+        items: items.map((s) => ({
+          id: s.id,
+          type: s.type,
+          reason: s.reason,
+          createdAt: s.createdAt,
+        })),
+      };
+    }, '유저 제재');
   }
 
   private validateStatusTransition(current: UserStatus, next: UserStatus): void {

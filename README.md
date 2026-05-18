@@ -32,6 +32,8 @@ cp .env.example .env
 | `JWT_EXPIRES_IN` | 토큰 만료 시간 | `8h` |
 | `PORT` | 서버 포트 | `3002` |
 | `FRONTEND_URL` | 프론트엔드 URL (CORS) | `http://localhost:3001` |
+| `AWS_REGION` | Secrets Manager를 읽을 AWS 리전 | `ap-northeast-2` |
+| `DB_SECRET_ID` | DB 자격증명이 들어있는 Secrets Manager ID | - |
 
 ### 3. 실행
 
@@ -49,6 +51,30 @@ npm run start:prod
 ```bash
 npm run test
 ```
+
+## 운영 시크릿 관리
+
+운영 환경에서는 `DB_PASSWORD`를 `.env`나 Consul KV 대신 AWS Secrets Manager에서 읽을 수 있습니다.
+
+1. Secrets Manager에 JSON 시크릿을 생성합니다.
+
+```json
+{
+  "DB_USERNAME": "gamyeon_backoffice",
+  "DB_PASSWORD": "change-me"
+}
+```
+
+2. 앱 부트스트랩 env에 아래 값을 설정합니다.
+
+```env
+AWS_REGION=ap-northeast-2
+DB_SECRET_ID=prod/gamyeon/backoffice/db
+```
+
+3. EC2 인스턴스 역할에 `secretsmanager:GetSecretValue` 권한을 추가합니다.
+
+앱은 시작 시 `Consul KV -> Secrets Manager` 순서로 env를 로드하므로, 같은 키가 있으면 Secrets Manager 값이 최종 적용됩니다.
 
 ## API 엔드포인트
 
@@ -87,10 +113,10 @@ npm run test
 
 | Method | Path | 설명 |
 |--------|------|------|
-| `GET` | `/api/v1/questions` | 질문 목록 |
-| `POST` | `/api/v1/questions` | 질문 생성 (최소 10자) |
-| `PATCH` | `/api/v1/questions/:id` | 질문 수정 |
-| `DELETE` | `/api/v1/questions/:id` | 질문 삭제 (소프트 딜리트) |
+| `GET` | `/api/v1/questions` | 공통질문 목록 |
+| `POST` | `/api/v1/questions` | 공통질문 생성 (최소 10자) |
+| `PATCH` | `/api/v1/questions/:id` | 공통질문 수정 |
+| `DELETE` | `/api/v1/questions/:id` | 공통질문 삭제 (소프트 딜리트) |
 
 ### Notices (공지 관리)
 
@@ -173,6 +199,3 @@ src/
 ## 현재 제한사항
 
 - 인메모리 Mock 데이터 사용 (서버 재시작 시 초기화)
-- 단일 슈퍼 관리자 계정만 지원
-- 입력 유효성 검증 (`class-validator`) 미적용
-- API 문서화 (Swagger) 미적용

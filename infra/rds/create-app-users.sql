@@ -1,0 +1,38 @@
+\set ON_ERROR_STOP on
+
+\connect gamyeon
+
+DO
+$$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'gamyeon_spring') THEN
+    CREATE ROLE gamyeon_spring LOGIN PASSWORD 'change-me-spring';
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'gamyeon_backoffice') THEN
+    CREATE ROLE gamyeon_backoffice LOGIN PASSWORD 'change-me-backoffice';
+  END IF;
+END
+$$;
+
+GRANT CONNECT ON DATABASE gamyeon TO gamyeon_spring;
+GRANT CONNECT ON DATABASE gamyeon TO gamyeon_backoffice;
+
+GRANT USAGE, CREATE ON SCHEMA public TO gamyeon_spring;
+GRANT USAGE, CREATE ON SCHEMA public TO gamyeon_backoffice;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO gamyeon_spring;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO gamyeon_backoffice;
+
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO gamyeon_spring;
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO gamyeon_backoffice;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO gamyeon_spring;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO gamyeon_backoffice;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO gamyeon_spring;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO gamyeon_backoffice;

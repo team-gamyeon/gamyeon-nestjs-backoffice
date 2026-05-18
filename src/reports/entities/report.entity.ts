@@ -1,25 +1,21 @@
 import {
   Entity,
-  PrimaryColumn,
+  PrimaryGeneratedColumn,
   Column,
-  CreateDateColumn,
   ManyToOne,
-  OneToMany,
   JoinColumn,
 } from 'typeorm';
 import { UserEntity } from '../../users/entities/user.entity.js';
-import { InterviewEntity } from '../../interviews/entities/interview.entity.js';
-import { QuestionResultEntity } from './question-result.entity.js';
 
-export type ReportStatus = 'COMPLETED' | 'IN_PROGRESS' | 'FAILED';
+export type ReportDbStatus = 'IN_PROGRESS' | 'SUCCEED' | 'FAILED';
 
 @Entity('reports')
 export class ReportEntity {
-  @PrimaryColumn({ name: 'report_id' })
-  reportId!: string;
+  @PrimaryGeneratedColumn({ type: 'bigint' })
+  id!: number;
 
-  @Column({ name: 'interview_id', type: 'bigint' })
-  interviewId!: number;
+  @Column({ name: 'intv_id', type: 'bigint' })
+  intvId!: number;
 
   @Column({ name: 'user_id', type: 'bigint' })
   userId!: number;
@@ -27,32 +23,28 @@ export class ReportEntity {
   @Column({ name: 'job_category', type: 'varchar', nullable: true })
   jobCategory!: string | null;
 
-  @Column({
-    type: 'enum',
-    enum: ['COMPLETED', 'IN_PROGRESS', 'FAILED'],
-  })
-  status!: ReportStatus;
+  @Column({ name: 'status', type: 'varchar' })
+  status!: ReportDbStatus;
 
-  @Column({ type: 'float', nullable: true })
-  score!: number | null;
+  @Column({ name: 'total_score', type: 'int', nullable: true })
+  totalScore!: number | null;
 
-  @Column({ type: 'text', nullable: true })
-  feedback!: string | null;
+  @Column({ name: 'report_data', type: 'jsonb', nullable: true })
+  reportData!: Record<string, unknown> | null;
 
-  @Column({ name: 'completed_at', type: 'timestamptz', nullable: true })
-  completedAt!: Date | null;
+  @Column({ name: 'strengths', type: 'jsonb', nullable: true })
+  strengths!: string[] | null;
 
-  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
+  @Column({ name: 'weaknesses', type: 'jsonb', nullable: true })
+  weaknesses!: string[] | null;
+
+  @Column({ name: 'created_at', type: 'timestamp' })
   createdAt!: Date;
+
+  @Column({ name: 'updated_at', type: 'timestamp' })
+  updatedAt!: Date;
 
   @ManyToOne(() => UserEntity)
   @JoinColumn({ name: 'user_id' })
   user!: UserEntity;
-
-  @ManyToOne(() => InterviewEntity)
-  @JoinColumn({ name: 'interview_id' })
-  interview!: InterviewEntity;
-
-  @OneToMany(() => QuestionResultEntity, (qr) => qr.report, { eager: true })
-  questionResults!: QuestionResultEntity[];
 }

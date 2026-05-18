@@ -1,0 +1,119 @@
+name: Provision Backoffice EC2
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Ensure Backoffice EC2 Exists
+        id: ensure_ec2
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          EC2_NAME_TAG: ${{ secrets.EC2_NAME_TAG }}
+          EC2_AMI_ID: ${{ secrets.EC2_AMI_ID }}
+          EC2_INSTANCE_TYPE: ${{ secrets.EC2_INSTANCE_TYPE }}
+          EC2_SUBNET_ID: ${{ secrets.EC2_SUBNET_ID }}
+          EC2_SECURITY_GROUP_ID: ${{ secrets.EC2_SECURITY_GROUP_ID }}
+          EC2_KEY_PAIR_NAME: ${{ secrets.EC2_KEY_PAIR_NAME }}
+          EC2_IAM_INSTANCE_PROFILE: ${{ secrets.EC2_IAM_INSTANCE_PROFILE }}
+          EC2_ROOT_VOLUME_SIZE: ${{ secrets.EC2_ROOT_VOLUME_SIZE }}
+        run: |
+          set -euo pipefail
+
+          NAME_TAG="${EC2_NAME_TAG:-gamyeon-backoffice-api}"
+          INSTANCE_TYPE="${EC2_INSTANCE_TYPE:-t3.small}"
+          ROOT_VOLUME_SIZE="${EC2_ROOT_VOLUME_SIZE:-20}"
+
+          INSTANCE_ID=$(aws ec2 describe-instances \
+            --region "$AWS_REGION" \
+            --filters \
+              "Name=tag:Name,Values=${NAME_TAG}" \
+              "Name=instance-state-name,Values=pending,running,stopping,stopped" \
+            --query 'Reservations[].Instances[0].InstanceId' \
+            --output text)
+
+          if [ -z "${INSTANCE_ID}" ] || [ "${INSTANCE_ID}" = "None" ]; then
+            if [ -z "${EC2_AMI_ID}" ] || [ -z "${EC2_SUBNET_ID}" ] || [ -z "${EC2_SECURITY_GROUP_ID}" ] || [ -z "${EC2_KEY_PAIR_NAME}" ]; then
+              echo "EC2 생성에 필요한 Secret이 부족합니다. EC2_AMI_ID, EC2_SUBNET_ID, EC2_SECURITY_GROUP_ID, EC2_KEY_PAIR_NAME을 확인하세요."
+              exit 1
+            fi
+
+            cat > /tmp/backoffice-user-data.sh <<'EOF'
+#!/bin/bash
+set -euxo pipefail
+
+dnf update -y
+dnf install -y docker
+systemctl enable docker
+systemctl start docker
+usermod -aG docker ec2-user
+
+mkdir -p /usr/local/lib/docker/cli-plugins
+curl -SL "https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-x86_64" \
+  -o /usr/local/lib/docker/cli-plugins/docker-compose
+chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+EOF
+
+            RUN_ARGS=(
+              --region "$AWS_REGION"
+              --image-id "$EC2_AMI_ID"
+              --instance-type "$INSTANCE_TYPE"
+              --key-name "$EC2_KEY_PAIR_NAME"
+              --subnet-id "$EC2_SUBNET_ID"
+              --security-group-ids "$EC2_SECURITY_GROUP_ID"
+              --associate-public-ip-address
+              --user-data "file:///tmp/backoffice-user-data.sh"
+              --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=${NAME_TAG}}]"
+              --block-device-mappings "[{\"DeviceName\":\"/dev/xvda\",\"Ebs\":{\"VolumeSize\":${ROOT_VOLUME_SIZE},\"VolumeType\":\"gp3\",\"DeleteOnTermination\":true}}]"
+              --query 'Instances[0].InstanceId'
+              --output text
+            )
+
+            if [ -n "${EC2_IAM_INSTANCE_PROFILE:-}" ]; then
+              RUN_ARGS+=(--iam-instance-profile "Name=${EC2_IAM_INSTANCE_PROFILE}")
+            fi
+
+            INSTANCE_ID=$(aws ec2 run-instances "${RUN_ARGS[@]}")
+            echo "Created instance: ${INSTANCE_ID}"
+          else
+            echo "Found existing instance: ${INSTANCE_ID}"
+          fi
+
+          INSTANCE_STATE=$(aws ec2 describe-instances \
+            --region "$AWS_REGION" \
+            --instance-ids "$INSTANCE_ID" \
+            --query 'Reservations[0].Instances[0].State.Name' \
+            --output text)
+
+          if [ "$INSTANCE_STATE" = "stopped" ]; then
+            aws ec2 start-instances --region "$AWS_REGION" --instance-ids "$INSTANCE_ID" >/dev/null
+          fi
+
+          aws ec2 wait instance-running --region "$AWS_REGION" --instance-ids "$INSTANCE_ID"
+
+          PUBLIC_IP=$(aws ec2 describe-instances \
+            --region "$AWS_REGION" \
+            --instance-ids "$INSTANCE_ID" \
+            --query 'Reservations[0].Instances[0].PublicIpAddress' \
+            --output text)
+
+          echo "instance_id=${INSTANCE_ID}" >> "$GITHUB_OUTPUT"
+          echo "public_ip=${PUBLIC_IP}" >> "$GITHUB_OUTPUT"
+
+      - name: Print Result
+        run: |
+          echo "Instance ID: ${{ steps.ensure_ec2.outputs.instance_id }}"
+          echo "Public IP: ${{ steps.ensure_ec2.outputs.public_ip }}"
+          echo "Update GitHub secret EC2_HOST with the public IP if it changed."

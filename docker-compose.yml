@@ -22,9 +22,21 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
     ports:
       - "3002:3002"
     restart: unless-stopped
+
+  db-init:
+    build: .
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["node", "dist/database/local-init.js"]
+    restart: "no"
 
 volumes:
   backoffice_pgdata:

@@ -1,6 +1,6 @@
-export type NoticeStatus = 'ACTIVE' | 'INACTIVE';
+import type { NoticeCategory, NoticeStatus } from './notices.constants.js';
+
 export type NoticeType = 'SERVICE' | 'MAINTENANCE' | 'UPDATE' | 'ETC';
-export type NoticeCategory = 'UPDATE' | 'GUIDE' | 'MAINTENANCE' | 'EVENT';
 
 export interface NoticeImage {
   id: string;
@@ -40,7 +40,7 @@ export interface CreateNoticeDto {
   category?: NoticeCategory;
   type?: NoticeType;
   images?: CreateNoticeImageDto[];
-  status?: 'ACTIVE' | 'INACTIVE';
+  status?: NoticeStatus;
 }
 
 export interface UpdateNoticeDto {
@@ -49,7 +49,7 @@ export interface UpdateNoticeDto {
   category?: NoticeCategory;
   type?: NoticeType;
   images?: CreateNoticeImageDto[];
-  status?: 'ACTIVE' | 'INACTIVE';
+  status?: NoticeStatus;
 }
 
 export interface CreateNoticeImageDto {

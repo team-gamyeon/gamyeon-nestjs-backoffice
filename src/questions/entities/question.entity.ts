@@ -8,27 +8,23 @@ import {
 
 export type QuestionStatus = 'ACTIVE' | 'INACTIVE' | 'DELETED';
 
-@Entity('questions')
+@Entity('common_questions')
 export class QuestionEntity {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
+  @PrimaryGeneratedColumn({ type: 'bigint' })
+  id!: number;
 
   @Column({ type: 'text' })
   content!: string;
 
-  @Column({
-    type: 'enum',
-    enum: ['ACTIVE', 'INACTIVE', 'DELETED'],
-    default: 'ACTIVE',
-  })
+  @Column({ type: 'varchar', default: 'ACTIVE' })
   status!: QuestionStatus;
 
-  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt!: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
   updatedAt!: Date;
 
-  @Column({ name: 'deleted_at', type: 'timestamptz', nullable: true })
+  @Column({ name: 'deleted_at', type: 'timestamp', nullable: true })
   deletedAt!: Date | null;
 }

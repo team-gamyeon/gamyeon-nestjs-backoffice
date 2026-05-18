@@ -8,11 +8,28 @@ export interface JwtPayload {
   role: string;
 }
 
+const extractAdminTokenFromCookie = (
+  req: { headers?: { cookie?: string } } | undefined,
+): string | null => {
+  const cookieHeader = req?.headers?.cookie;
+  if (!cookieHeader) return null;
+
+  const cookies = cookieHeader.split(';').map((cookie) => cookie.trim());
+  const adminCookie = cookies.find((cookie) => cookie.startsWith('admin_token='));
+  if (!adminCookie) return null;
+
+  const [, token] = adminCookie.split('=');
+  return token || null;
+};
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(config: ConfigService) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+        extractAdminTokenFromCookie,
+      ]),
       ignoreExpiration: false,
       secretOrKey: config.get<string>('JWT_SECRET', 'fallback-secret'),
     });
